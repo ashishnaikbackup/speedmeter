@@ -1,12 +1,21 @@
-/* ==================================
+/* =========================================================
    SPEEDMETER
-   INTERNET SPEED MONITOR
-================================== */
+   Live Internet Speed Test & Continuous Monitor
+   Powered by Cloudflare's browser speed-test engine
+========================================================= */
 
 
-/* ==============================
+/* =========================================================
+   CLOUDFARE SPEED TEST ENGINE
+========================================================= */
+
+let SpeedTestEngine = null;
+let engine = null;
+
+
+/* =========================================================
    ELEMENTS
-============================== */
+========================================================= */
 
 const testButton =
     document.getElementById("testButton");
@@ -50,17 +59,11 @@ const testMessage =
 const testTime =
     document.getElementById("testTime");
 
-const connectionBadge =
-    document.getElementById("connectionBadge");
-
 const connectionText =
     document.getElementById("connectionText");
 
 const statusStat =
     document.getElementById("statusStat");
-
-const networkStatus =
-    document.getElementById("networkStatus");
 
 const connectionType =
     document.getElementById("connectionType");
@@ -70,6 +73,9 @@ const effectiveType =
 
 const browserDownlink =
     document.getElementById("browserDownlink");
+
+const networkStatus =
+    document.getElementById("networkStatus");
 
 const canvas =
     document.getElementById("speedChart");
@@ -81,9 +87,9 @@ const clearButton =
     document.getElementById("clearButton");
 
 
-/* ==============================
-   VARIABLES
-============================== */
+/* =========================================================
+   STATE
+========================================================= */
 
 let testing = false;
 
@@ -93,10 +99,75 @@ let monitorTimer = null;
 
 let history = [];
 
+let currentEngine = null;
 
-/* ==============================
+let lastDownload = null;
+
+let lastUpload = null;
+
+let lastPing = null;
+
+
+/*
+    Monitoring waits this long after one complete test
+    before beginning another one.
+*/
+
+const MONITOR_INTERVAL = 15000;
+
+
+/* =========================================================
+   LOAD CLOUDFLARE ENGINE
+========================================================= */
+
+async function loadSpeedTestEngine() {
+
+    if (SpeedTestEngine) {
+
+        return SpeedTestEngine;
+    }
+
+
+    try {
+
+        /*
+            Load the official Cloudflare speed-test
+            package directly from a public CDN.
+
+            Version 1.12.1 is the current release
+            at the time this project is being built.
+        */
+
+        const module =
+            await import(
+                "https://cdn.jsdelivr.net/npm/@cloudflare/speedtest@1.12.1/+esm"
+            );
+
+
+        SpeedTestEngine =
+            module.default ||
+            module.SpeedTest ||
+            module;
+
+
+        return SpeedTestEngine;
+
+    } catch (error) {
+
+        console.error(
+            "Speed test engine failed to load:",
+            error
+        );
+
+
+        throw error;
+    }
+}
+
+
+/* =========================================================
    THEME
-============================== */
+========================================================= */
 
 function loadTheme() {
 
@@ -112,7 +183,8 @@ function loadTheme() {
             "dark"
         );
 
-        themeIcon.textContent = "☀";
+        themeIcon.textContent =
+            "☀";
 
         themeColor.setAttribute(
             "content",
@@ -121,7 +193,8 @@ function loadTheme() {
 
     } else {
 
-        themeIcon.textContent = "☾";
+        themeIcon.textContent =
+            "☾";
 
         themeColor.setAttribute(
             "content",
@@ -164,7 +237,6 @@ themeToggle.addEventListener(
 
 
         drawChart();
-
     }
 );
 
@@ -172,9 +244,9 @@ themeToggle.addEventListener(
 loadTheme();
 
 
-/* ==============================
-   CONNECTION STATUS
-============================== */
+/* =========================================================
+   CONNECTION INFORMATION
+========================================================= */
 
 function updateConnection() {
 
@@ -204,7 +276,8 @@ function updateConnection() {
         statusStat.textContent =
             "Offline";
 
-        statusStat.className = "";
+        statusStat.className =
+            "";
 
         statusStat.style.color =
             "var(--red)";
@@ -213,6 +286,13 @@ function updateConnection() {
             "Offline";
     }
 
+
+    /*
+        Network Information API.
+
+        Not supported by every browser,
+        especially Safari/iPhone.
+    */
 
     const connection =
         navigator.connection ||
@@ -226,12 +306,16 @@ function updateConnection() {
             connection.type ||
             "Available";
 
+
         effectiveType.textContent =
             connection.effectiveType ||
             "—";
 
 
-        if (connection.downlink) {
+        if (
+            typeof connection.downlink ===
+            "number"
+        ) {
 
             browserDownlink.textContent =
                 connection.downlink.toFixed(2);
@@ -245,7 +329,7 @@ function updateConnection() {
     } else {
 
         connectionType.textContent =
-            "Not available";
+            "Browser";
 
         effectiveType.textContent =
             "—";
@@ -272,305 +356,632 @@ window.addEventListener(
 updateConnection();
 
 
-/* ==============================
-   PING
-============================== */
+/* =========================================================
+   FORMAT SPEED
+========================================================= */
 
-async function testPing() {
+function formatSpeed(bps) {
 
-    const url =
-        "https://www.gstatic.com/generate_204";
+    if (
+        typeof bps !== "number" ||
+        !Number.isFinite(bps) ||
+        bps <= 0
+    ) {
 
-
-    const start =
-        performance.now();
-
-
-    try {
-
-        await fetch(
-            url +
-            "?t=" +
-            Date.now(),
-            {
-                cache: "no-store",
-                mode: "no-cors"
-            }
-        );
-
-
-        const result =
-            Math.round(
-                performance.now() -
-                start
-            );
-
-
-        pingStat.textContent =
-            result;
-
-
-        return result;
-
-    } catch {
-
-        pingStat.textContent =
-            "—";
-
-        return null;
+        return "0.00";
     }
 
+
+    const mbps =
+        bps / 1000000;
+
+
+    if (mbps >= 1000) {
+
+        return (
+            mbps / 1000
+        ).toFixed(2);
+
+    }
+
+
+    return mbps.toFixed(2);
 }
 
 
-/* ==============================
-   DOWNLOAD TEST
-============================== */
+/* =========================================================
+   UPDATE DOWNLOAD
+========================================================= */
 
-async function testDownload() {
+function updateDownloadSpeed(bps) {
 
-    /*
-        Cloudflare's public speed endpoint.
-    */
+    if (
+        typeof bps !== "number" ||
+        !Number.isFinite(bps) ||
+        bps <= 0
+    ) {
 
-    const bytes =
-        5 * 1024 * 1024;
-
-
-    const url =
-        "https://speed.cloudflare.com/__down?bytes=" +
-        bytes +
-        "&cache=" +
-        Date.now();
-
-
-    const start =
-        performance.now();
-
-
-    try {
-
-        const response =
-            await fetch(
-                url,
-                {
-                    cache:
-                        "no-store"
-                }
-            );
-
-
-        if (!response.body) {
-
-            throw new Error(
-                "Streaming unavailable"
-            );
-        }
-
-
-        const reader =
-            response.body.getReader();
-
-
-        let received = 0;
-
-
-        while (true) {
-
-            const result =
-                await reader.read();
-
-
-            if (result.done) {
-
-                break;
-            }
-
-
-            received +=
-                result.value.length;
-
-
-            const elapsed =
-                (
-                    performance.now() -
-                    start
-                ) / 1000;
-
-
-            if (elapsed > 0) {
-
-                const current =
-                    (
-                        received *
-                        8 /
-                        elapsed /
-                        1000000
-                    );
-
-
-                downloadSpeed.textContent =
-                    current.toFixed(2);
-
-
-                downloadStat.textContent =
-                    current.toFixed(2);
-
-
-                progressBar.style.width =
-                    Math.min(
-                        100,
-                        received /
-                        bytes *
-                        100
-                    ) +
-                    "%";
-            }
-
-        }
-
-
-        const seconds =
-            (
-                performance.now() -
-                start
-            ) / 1000;
-
-
-        const speed =
-            received *
-            8 /
-            seconds /
-            1000000;
-
-
-        downloadSpeed.textContent =
-            speed.toFixed(2);
-
-
-        downloadStat.textContent =
-            speed.toFixed(2);
-
-
-        progressBar.style.width =
-            "100%";
-
-
-        return speed;
-
-    } catch (error) {
-
-        console.error(
-            error
-        );
-
-
-        testMessage.textContent =
-            "Download test unavailable";
-
-
-        return null;
+        return;
     }
 
-}
+
+    const value =
+        formatSpeed(bps);
 
 
-/* ==============================
-   UPLOAD TEST
-============================== */
+    lastDownload =
+        parseFloat(value);
 
-async function testUpload() {
+
+    downloadSpeed.textContent =
+        value;
+
+    downloadStat.textContent =
+        value;
+
 
     /*
-        Browser upload measurement.
+        Visual live movement.
 
-        Some browsers/network
-        environments may block this.
+        The bar never represents an absolute
+        internet limit. It simply gives the
+        user visual feedback that the test
+        is actively running.
     */
 
-    const size =
-        512 * 1024;
-
-
-    const data =
-        new Uint8Array(size);
-
-
-    try {
-
-        crypto.getRandomValues(
-            data.subarray(
-                0,
-                Math.min(
-                    65536,
-                    data.length
-                )
+    const visual =
+        Math.min(
+            100,
+            Math.max(
+                8,
+                lastDownload /
+                2
             )
         );
 
-    } catch {
 
-        /* Random data is not essential */
+    progressBar.style.width =
+        visual + "%";
+}
+
+
+/* =========================================================
+   UPDATE UPLOAD
+========================================================= */
+
+function updateUploadSpeed(bps) {
+
+    if (
+        typeof bps !== "number" ||
+        !Number.isFinite(bps) ||
+        bps <= 0
+    ) {
+
+        return;
     }
 
 
-    const start =
-        performance.now();
+    const value =
+        formatSpeed(bps);
 
+
+    lastUpload =
+        parseFloat(value);
+
+
+    uploadStat.textContent =
+        value;
+}
+
+
+/* =========================================================
+   UPDATE PING
+========================================================= */
+
+function updatePing(value) {
+
+    if (
+        typeof value !== "number" ||
+        !Number.isFinite(value) ||
+        value <= 0
+    ) {
+
+        return;
+    }
+
+
+    lastPing =
+        Math.round(value);
+
+
+    pingStat.textContent =
+        lastPing;
+}
+
+
+/* =========================================================
+   READ CURRENT RESULTS
+========================================================= */
+
+function readLiveResults(speedEngine) {
 
     try {
 
-        await fetch(
-            "https://httpbin.org/post?x=" +
-            Date.now(),
-            {
-                method: "POST",
-                body: data,
-                cache: "no-store"
+        const results =
+            speedEngine.results;
+
+
+        /*
+            DOWNLOAD
+        */
+
+        if (
+            results &&
+            typeof results.getDownloadBandwidthPoints ===
+            "function"
+        ) {
+
+            const points =
+                results.getDownloadBandwidthPoints();
+
+
+            if (
+                points &&
+                points.length
+            ) {
+
+                const latest =
+                    points[
+                        points.length - 1
+                    ];
+
+
+                if (
+                    latest &&
+                    typeof latest.bps ===
+                    "number"
+                ) {
+
+                    updateDownloadSpeed(
+                        latest.bps
+                    );
+                }
             }
+        }
+
+
+        /*
+            UPLOAD
+        */
+
+        if (
+            results &&
+            typeof results.getUploadBandwidthPoints ===
+            "function"
+        ) {
+
+            const points =
+                results.getUploadBandwidthPoints();
+
+
+            if (
+                points &&
+                points.length
+            ) {
+
+                const latest =
+                    points[
+                        points.length - 1
+                    ];
+
+
+                if (
+                    latest &&
+                    typeof latest.bps ===
+                    "number"
+                ) {
+
+                    updateUploadSpeed(
+                        latest.bps
+                    );
+                }
+            }
+        }
+
+
+        /*
+            LATENCY
+        */
+
+        if (
+            results &&
+            typeof results.getUnloadedLatency ===
+            "function"
+        ) {
+
+            const latency =
+                results.getUnloadedLatency();
+
+
+            if (
+                typeof latency ===
+                "number"
+            ) {
+
+                updatePing(
+                    latency
+                );
+            }
+        }
+
+    } catch (error) {
+
+        console.debug(
+            "Live result update:",
+            error
+        );
+    }
+}
+
+
+/* =========================================================
+   CREATE ENGINE
+========================================================= */
+
+async function createEngine() {
+
+    const SpeedTest =
+        await loadSpeedTestEngine();
+
+
+    /*
+        We deliberately configure the test ourselves.
+
+        This avoids relying on the deprecated public
+        packet-loss TURN server.
+
+        The test measures:
+        - latency
+        - download
+        - upload
+    */
+
+    const config = {
+
+        autoStart: false,
+
+        measureDownloadLoadedLatency: true,
+
+        measureUploadLoadedLatency: true,
+
+        bandwidthFinishRequestDuration:
+            1200,
+
+        measurements: [
+
+            {
+                type: "latency",
+
+                numPackets: 5
+            },
+
+
+            {
+                type: "download",
+
+                bytes: 100000,
+
+                count: 3,
+
+                bypassMinDuration: true
+            },
+
+
+            {
+                type: "download",
+
+                bytes: 1000000,
+
+                count: 4
+            },
+
+
+            {
+                type: "download",
+
+                bytes: 5000000,
+
+                count: 3
+            },
+
+
+            {
+                type: "upload",
+
+                bytes: 100000,
+
+                count: 3,
+
+                bypassMinDuration: true
+            },
+
+
+            {
+                type: "upload",
+
+                bytes: 1000000,
+
+                count: 4
+            },
+
+
+            {
+                type: "upload",
+
+                bytes: 5000000,
+
+                count: 2
+            }
+
+        ]
+    };
+
+
+    const speedEngine =
+        new SpeedTest(
+            config
         );
 
 
-        const seconds =
-            (
-                performance.now() -
-                start
-            ) / 1000;
+    speedEngine.onRunningChange =
+        running => {
+
+            if (running) {
+
+                testing = true;
+
+            } else {
+
+                testing = false;
+            }
+        };
 
 
-        const speed =
-            size *
-            8 /
-            seconds /
-            1000000;
+    speedEngine.onResultsChange =
+        info => {
+
+            /*
+                This is the important part.
+
+                Cloudflare calls this while the test
+                is progressing, allowing SpeedMeter
+                to update the UI live.
+            */
+
+            readLiveResults(
+                speedEngine
+            );
 
 
-        uploadStat.textContent =
-            speed.toFixed(2);
+            if (testing) {
+
+                if (
+                    info &&
+                    info.type ===
+                    "download"
+                ) {
+
+                    testMessage.textContent =
+                        "Measuring download speed…";
+
+                } else if (
+                    info &&
+                    info.type ===
+                    "upload"
+                ) {
+
+                    testMessage.textContent =
+                        "Measuring upload speed…";
+
+                } else if (
+                    info &&
+                    info.type ===
+                    "latency"
+                ) {
+
+                    testMessage.textContent =
+                        "Measuring connection latency…";
+
+                } else {
+
+                    testMessage.textContent =
+                        "Testing your connection…";
+                }
+            }
+        };
 
 
-        return speed;
+    speedEngine.onError =
+        error => {
+
+            console.error(
+                "Speed test error:",
+                error
+            );
+
+
+            testMessage.textContent =
+                "Speed test encountered an error";
+
+        };
+
+
+    return speedEngine;
+}
+
+
+/* =========================================================
+   FINAL RESULT
+========================================================= */
+
+function processFinalResults(
+    results
+) {
+
+    try {
+
+        /*
+            Final download
+        */
+
+        if (
+            results &&
+            typeof results.getDownloadBandwidth ===
+            "function"
+        ) {
+
+            const bps =
+                results.getDownloadBandwidth();
+
+
+            if (
+                typeof bps ===
+                "number" &&
+                bps > 0
+            ) {
+
+                updateDownloadSpeed(
+                    bps
+                );
+            }
+        }
+
+
+        /*
+            Final upload
+        */
+
+        if (
+            results &&
+            typeof results.getUploadBandwidth ===
+            "function"
+        ) {
+
+            const bps =
+                results.getUploadBandwidth();
+
+
+            if (
+                typeof bps ===
+                "number" &&
+                bps > 0
+            ) {
+
+                updateUploadSpeed(
+                    bps
+                );
+            }
+        }
+
+
+        /*
+            Final ping
+        */
+
+        if (
+            results &&
+            typeof results.getUnloadedLatency ===
+            "function"
+        ) {
+
+            const latency =
+                results.getUnloadedLatency();
+
+
+            if (
+                typeof latency ===
+                "number"
+            ) {
+
+                updatePing(
+                    latency
+                );
+            }
+        }
+
 
     } catch (error) {
 
         console.error(
+            "Final result error:",
             error
         );
-
-
-        uploadStat.textContent =
-            "—";
-
-
-        return null;
     }
-
 }
 
 
-/* ==============================
-   MAIN TEST
-============================== */
+/* =========================================================
+   SAVE HISTORY
+========================================================= */
+
+function saveHistory() {
+
+    if (
+        typeof lastDownload !==
+        "number" ||
+        lastDownload <= 0
+    ) {
+
+        return;
+    }
+
+
+    history.push({
+
+        download:
+            lastDownload,
+
+        upload:
+            typeof lastUpload ===
+            "number"
+                ? lastUpload
+                : null,
+
+        ping:
+            typeof lastPing ===
+            "number"
+                ? lastPing
+                : null,
+
+        time:
+            new Date()
+    });
+
+
+    /*
+        Keep the latest 40 results.
+    */
+
+    if (
+        history.length >
+        40
+    ) {
+
+        history.shift();
+    }
+
+
+    chartEmpty.style.display =
+        "none";
+
+
+    drawChart();
+}
+
+
+/* =========================================================
+   RUN ONE TEST
+========================================================= */
 
 async function runTest() {
 
@@ -595,6 +1006,7 @@ async function runTest() {
     testButton.disabled =
         true;
 
+
     monitorButton.disabled =
         true;
 
@@ -602,479 +1014,152 @@ async function runTest() {
     buttonIcon.textContent =
         "◌";
 
+
     buttonText.textContent =
-        "Testing...";
+        "Testing…";
 
 
     testMessage.textContent =
-        "Testing your connection";
+        "Starting speed test…";
 
 
     progressBar.style.width =
-        "0%";
+        "5%";
+
+
+    /*
+        Reset live result placeholders.
+
+        Keep previous final values visible until
+        new measurements start arriving.
+    */
+
+    lastDownload =
+        null;
+
+    lastUpload =
+        null;
+
+    lastPing =
+        null;
 
 
     try {
 
-        await testPing();
+        currentEngine =
+            await createEngine();
 
 
-        const download =
-            await testDownload();
+        engine =
+            currentEngine;
 
 
-        await testUpload();
+        /*
+            Attach final callback before play.
+        */
+
+        currentEngine.onFinish =
+            results => {
+
+                processFinalResults(
+                    results
+                );
 
 
-        if (download !== null) {
-
-            addHistory(
-                download
-            );
-        }
+                progressBar.style.width =
+                    "100%";
 
 
-        const now =
-            new Date();
+                testMessage.textContent =
+                    "Speed test completed";
 
 
-        testTime.textContent =
-            now.toLocaleTimeString(
-                [],
-                {
-                    hour:
-                        "2-digit",
-
-                    minute:
-                        "2-digit",
-
-                    second:
-                        "2-digit"
-                }
-            );
+                const now =
+                    new Date();
 
 
-        if (download !== null) {
+                testTime.textContent =
+                    now.toLocaleTimeString(
+                        [],
+                        {
+                            hour:
+                                "2-digit",
 
-            testMessage.textContent =
-                "Speed test completed";
-        }
+                            minute:
+                                "2-digit",
+
+                            second:
+                                "2-digit"
+                        }
+                    );
+
+
+                saveHistory();
+
+
+                testing =
+                    false;
+
+
+                testButton.disabled =
+                    false;
+
+
+                monitorButton.disabled =
+                    false;
+
+
+                buttonIcon.textContent =
+                    "▶";
+
+
+                buttonText.textContent =
+                    "Start Speed Test";
+
+
+                currentEngine =
+                    null;
+
+            };
+
+
+        /*
+            START
+        */
+
+        currentEngine.play();
 
 
     } catch (error) {
 
         console.error(
+            "Could not start speed test:",
             error
         );
 
 
         testMessage.textContent =
-            "Test could not be completed";
-    }
+            "Unable to start speed test";
 
 
-    testing = false;
+        testing =
+            false;
 
 
-    testButton.disabled =
-        false;
+        testButton.disabled =
+            false;
 
-    monitorButton.disabled =
-        false;
 
+        monitorButton.disabled =
+            false;
 
-    buttonIcon.textContent =
-        "▶";
 
-    buttonText.textContent =
-        monitoring
-            ? "Run Test"
-            : "Start Speed Test";
-}
+        buttonIcon.textContent =
+            "▶";
 
 
-/* ==============================
-   HISTORY
-============================== */
+        buttonText.textContent =
+            "Start Speed Test";
 
-function addHistory(speed) {
 
-    history.push({
-
-        speed: speed,
-
-        time: new Date()
-
-    });
-
-
-    if (history.length > 30) {
-
-        history.shift();
-    }
-
-
-    chartEmpty.style.display =
-        "none";
-
-
-    drawChart();
-}
-
-
-/* ==============================
-   CHART
-============================== */
-
-function drawChart() {
-
-    const ctx =
-        canvas.getContext(
-            "2d"
-        );
-
-
-    const rect =
-        canvas.getBoundingClientRect();
-
-
-    const ratio =
-        window.devicePixelRatio ||
-        1;
-
-
-    canvas.width =
-        rect.width *
-        ratio;
-
-
-    canvas.height =
-        rect.height *
-        ratio;
-
-
-    ctx.setTransform(
-        ratio,
-        0,
-        0,
-        ratio,
-        0,
-        0
-    );
-
-
-    const width =
-        rect.width;
-
-    const height =
-        rect.height;
-
-
-    ctx.clearRect(
-        0,
-        0,
-        width,
-        height
-    );
-
-
-    if (history.length === 0) {
-
-        chartEmpty.style.display =
-            "flex";
-
-        return;
-    }
-
-
-    chartEmpty.style.display =
-        "none";
-
-
-    const dark =
-        document.body.classList.contains(
-            "dark"
-        );
-
-
-    const grid =
-        dark
-            ? "rgba(255,255,255,.07)"
-            : "rgba(0,0,0,.06)";
-
-
-    const line =
-        dark
-            ? "#0a84ff"
-            : "#007aff";
-
-
-    /* GRID */
-
-    ctx.strokeStyle =
-        grid;
-
-    ctx.lineWidth =
-        1;
-
-
-    for (
-        let i = 0;
-        i <= 4;
-        i++
-    ) {
-
-        const y =
-            15 +
-            (
-                height -
-                30
-            ) /
-            4 *
-            i;
-
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            0,
-            y
-        );
-
-        ctx.lineTo(
-            width,
-            y
-        );
-
-        ctx.stroke();
-    }
-
-
-    /* MAX */
-
-    const max =
-        Math.max(
-            ...history.map(
-                item =>
-                    item.speed
-            ),
-            10
-        );
-
-
-    /* LINE */
-
-    ctx.beginPath();
-
-
-    history.forEach(
-        (item, index) => {
-
-            const x =
-                history.length === 1
-                    ? width / 2
-                    :
-                    (
-                        index /
-                        (
-                            history.length -
-                            1
-                        )
-                    ) *
-                    width;
-
-
-            const y =
-                height -
-                20 -
-                (
-                    item.speed /
-                    max
-                ) *
-                (
-                    height -
-                    40
-                );
-
-
-            if (index === 0) {
-
-                ctx.moveTo(
-                    x,
-                    y
-                );
-
-            } else {
-
-                ctx.lineTo(
-                    x,
-                    y
-                );
-            }
-
-        }
-    );
-
-
-    ctx.strokeStyle =
-        line;
-
-    ctx.lineWidth =
-        3;
-
-    ctx.lineCap =
-        "round";
-
-    ctx.lineJoin =
-        "round";
-
-    ctx.stroke();
-
-
-    /* POINTS */
-
-    history.forEach(
-        (item, index) => {
-
-            const x =
-                history.length === 1
-                    ? width / 2
-                    :
-                    (
-                        index /
-                        (
-                            history.length -
-                            1
-                        )
-                    ) *
-                    width;
-
-
-            const y =
-                height -
-                20 -
-                (
-                    item.speed /
-                    max
-                ) *
-                (
-                    height -
-                    40
-                );
-
-
-            ctx.beginPath();
-
-            ctx.arc(
-                x,
-                y,
-                3,
-                0,
-                Math.PI * 2
-            );
-
-
-            ctx.fillStyle =
-                line;
-
-            ctx.fill();
-        }
-    );
-
-}
-
-
-window.addEventListener(
-    "resize",
-    drawChart
-);
-
-
-/* ==============================
-   MONITORING
-============================== */
-
-monitorButton.addEventListener(
-    "click",
-    async () => {
-
-        if (!monitoring) {
-
-            monitoring = true;
-
-
-            monitorButton.innerHTML =
-                "■ Stop Monitoring";
-
-
-            await runTest();
-
-
-            /*
-                Repeat every minute.
-            */
-
-            monitorTimer =
-                setInterval(
-                    runTest,
-                    60000
-                );
-
-        } else {
-
-            monitoring = false;
-
-
-            clearInterval(
-                monitorTimer
-            );
-
-
-            monitorTimer =
-                null;
-
-
-            monitorButton.innerHTML =
-                "◉ Start Monitoring";
-
-        }
-
-    }
-);
-
-
-/* ==============================
-   TEST BUTTON
-============================== */
-
-testButton.addEventListener(
-    "click",
-    runTest
-);
-
-
-/* ==============================
-   CLEAR
-============================== */
-
-clearButton.addEventListener(
-    "click",
-    () => {
-
-        history = [];
-
-
-        chartEmpty.style.display =
-            "flex";
-
-
-        drawChart();
-    }
-);
-
-
-/* ==============================
-   INITIAL
-============================== */
-
-drawChart();
+        currentEngine 
