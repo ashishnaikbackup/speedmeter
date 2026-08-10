@@ -11,22 +11,12 @@
     >
 
     <title>
-        Internet Speed Test – Check Download, Upload & Ping | SpeedMeter
+        Internet Speed Test - Check Your WiFi & Internet Speed | SpeedMeter
     </title>
 
     <meta
         name="description"
-        content="Free internet speed test to check download speed, upload speed, ping and connection quality. Monitor your internet connection in real time with SpeedMeter."
-    >
-
-    <meta
-        name="keywords"
-        content="internet speed test, speed test, wifi speed test, internet speed check, download speed test, upload speed test, ping test, network speed test, internet speed monitor"
-    >
-
-    <meta
-        name="author"
-        content="SpeedMeter"
+        content="Free internet speed test to check download speed, upload speed and ping. Test your WiFi, mobile data or broadband connection with SpeedMeter."
     >
 
     <meta
@@ -35,15 +25,19 @@
     >
 
     <meta
+        name="author"
+        content="SpeedMeter"
+    >
+
+    <meta
         name="theme-color"
         content="#ffffff"
         id="themeColor"
     >
 
-    <!-- CHANGE THIS -->
     <link
         rel="canonical"
-        href="https://YOUR-USERNAME.github.io/speedmeter/"
+        href="https://ashishnaikbackup.github.io/speedmeter/"
     >
 
 
@@ -65,14 +59,13 @@
     >
 
     <meta
-        property="og:site_name"
-        content="SpeedMeter"
+        property="og:url"
+        content="https://ashishnaikbackup.github.io/speedmeter/"
     >
 
-    <!-- CHANGE THIS -->
     <meta
-        property="og:url"
-        content="https://YOUR-USERNAME.github.io/speedmeter/"
+        property="og:site_name"
+        content="SpeedMeter"
     >
 
 
@@ -90,7 +83,7 @@
 
     <meta
         name="twitter:description"
-        content="Free internet speed test for download, upload and ping."
+        content="Free internet speed test for download speed, upload speed and ping."
     >
 
 
@@ -121,14 +114,20 @@
 
         "name": "SpeedMeter",
 
+        "url":
+        "https://ashishnaikbackup.github.io/speedmeter/",
+
         "description":
-        "Free internet speed test for download speed, upload speed, ping and internet connection monitoring.",
+        "Free internet speed test for checking download speed, upload speed, ping and connection quality.",
 
         "applicationCategory":
         "UtilitiesApplication",
 
         "operatingSystem":
         "Web Browser",
+
+        "browserRequirements":
+        "Requires JavaScript",
 
         "isAccessibleForFree":
         true,
@@ -138,7 +137,6 @@
             "price": "0",
             "priceCurrency": "USD"
         }
-
     }
 
     </script>
@@ -156,7 +154,7 @@
 <header class="navbar">
 
     <a
-        href="#"
+        href="./"
         class="brand"
         aria-label="SpeedMeter home"
     >
@@ -194,6 +192,7 @@
         id="themeToggle"
         class="theme-toggle"
         aria-label="Toggle dark mode"
+        type="button"
     >
 
         <span id="themeIcon">
@@ -216,7 +215,6 @@
 <!-- HERO -->
 
 <section class="hero">
-
 
     <div
         class="connection-badge"
@@ -243,10 +241,10 @@
     <p>
 
         Check your download speed, upload speed and ping.
-        Monitor your connection whenever you need it.
+        Test your WiFi, mobile data or broadband connection
+        directly from your browser.
 
     </p>
-
 
 </section>
 
@@ -254,11 +252,12 @@
 
 <!-- SPEED CARD -->
 
-<section class="speed-card">
-
+<section
+    class="speed-card"
+    aria-label="Internet speed test result"
+>
 
     <div class="speed-card-top">
-
 
         <div>
 
@@ -282,10 +281,12 @@
         </div>
 
 
-        <div class="download-symbol">
+        <div
+            class="download-symbol"
+            aria-hidden="true"
+        >
             ↓
         </div>
-
 
     </div>
 
@@ -311,7 +312,6 @@
         </span>
 
     </div>
-
 
 </section>
 
@@ -423,6 +423,7 @@
     <button
         id="testButton"
         class="primary-button"
+        type="button"
     >
 
         <span id="buttonIcon">
@@ -439,6 +440,7 @@
     <button
         id="monitorButton"
         class="secondary-button"
+        type="button"
     >
 
         ◉
@@ -454,13 +456,11 @@
 
 
 
-<!-- CHART -->
+<!-- PERFORMANCE -->
 
 <section class="panel">
 
-
     <div class="panel-header">
-
 
         <div>
 
@@ -478,10 +478,10 @@
         <button
             id="clearButton"
             class="clear-button"
+            type="button"
         >
             Clear
         </button>
-
 
     </div>
 
@@ -490,6 +490,7 @@
 
         <canvas
             id="speedChart"
+            aria-label="Internet speed history chart"
         ></canvas>
 
 
@@ -514,7 +515,6 @@
 
     </div>
 
-
 </section>
 
 
@@ -522,7 +522,6 @@
 <!-- CONNECTION DETAILS -->
 
 <section class="panel">
-
 
     <div class="panel-header">
 
@@ -608,10 +607,11 @@
 
 
 
-<!-- SEO CONTENT -->
+<!-- ==============================
+     SEO CONTENT
+============================== -->
 
 <section class="seo-content">
-
 
     <h2>
         Free Internet Speed Test
@@ -620,11 +620,11 @@
 
     <p>
 
-        SpeedMeter is a free internet speed test that lets you
-        check your connection's download speed, upload speed
-        and ping directly from your web browser.
-
-        No account is required and there is nothing to install.
+        SpeedMeter is a free internet speed test that helps
+        you check your download speed, upload speed and ping
+        directly from your web browser. You can use it to test
+        WiFi, mobile data, broadband and other internet
+        connections without installing an app.
 
     </p>
 
@@ -637,13 +637,12 @@
 
     <p>
 
-        Use SpeedMeter to check your WiFi, mobile data,
-        broadband or other internet connection. A speed test
-        can help you understand whether your current connection
-        is performing as expected.
+        Run SpeedMeter whenever you want to check how your
+        internet connection is performing. Your measured speed
+        can vary depending on your network, device, server
+        location, congestion and other factors.
 
     </p>
-
 
 
     <div class="seo-grid">
@@ -657,7 +656,7 @@
 
             <p>
 
-                Find out how quickly data can be downloaded
+                Measure how quickly data can be downloaded
                 to your device.
 
             </p>
@@ -689,7 +688,7 @@
 
             <p>
 
-                Check the approximate response time between
+                Measure the approximate response time between
                 your browser and the test service.
 
             </p>
@@ -700,13 +699,13 @@
         <article>
 
             <h3>
-                Internet Monitoring
+                Internet Speed Monitor
             </h3>
 
             <p>
 
-                Run repeated tests to observe changes in
-                your connection performance.
+                Run repeated tests and observe changes in
+                your internet connection over time.
 
             </p>
 
@@ -718,19 +717,35 @@
 
 
     <h2>
-        What is a Good Internet Speed?
+        What Is a Good Internet Speed?
     </h2>
 
 
     <p>
 
-        The internet speed you need depends on what you do
-        online. Web browsing, video calls, streaming,
-        gaming and large downloads can all require different
-        levels of bandwidth.
+        The internet speed you need depends on how you use
+        the internet. Browsing, video calls, streaming,
+        online gaming and large downloads can require
+        different amounts of bandwidth.
 
     </p>
 
+
+
+    <h2>
+        How Internet Speed Is Measured
+    </h2>
+
+
+    <p>
+
+        Internet speed is commonly measured in megabits per
+        second (Mbps). Download speed describes how quickly
+        data reaches your device, while upload speed describes
+        how quickly your device sends data. Ping measures
+        response time and is normally shown in milliseconds.
+
+    </p>
 
 </section>
 
@@ -742,7 +757,6 @@
 <!-- FOOTER -->
 
 <footer>
-
 
     <div class="footer-logo">
         SpeedMeter
@@ -761,7 +775,6 @@
         © 2026 SpeedMeter. Free internet speed test.
     </p>
 
-
 </footer>
 
 
@@ -771,4 +784,4 @@
 
 </body>
 
-  </html>
+</html>
