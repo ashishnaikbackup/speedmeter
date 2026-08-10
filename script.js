@@ -1,691 +1,808 @@
-/* ==================================
+/* =========================================================
    SPEEDMETER
-   INTERNET SPEED TEST
-================================== */
-
-document.addEventListener("DOMContentLoaded", () => {
-
-    /* ==============================
-       ELEMENTS
-    ============================== */
-
-    const testButton = document.getElementById("testButton");
-    const buttonText = document.getElementById("buttonText");
-    const buttonIcon = document.getElementById("buttonIcon");
-
-    const monitorButton = document.getElementById("monitorButton");
-    const themeToggle = document.getElementById("themeToggle");
-    const themeIcon = document.getElementById("themeIcon");
-    const themeColor = document.getElementById("themeColor");
-
-    const downloadSpeed = document.getElementById("downloadSpeed");
-    const downloadStat = document.getElementById("downloadStat");
-    const uploadStat = document.getElementById("uploadStat");
-    const pingStat = document.getElementById("pingStat");
-
-    const progressBar = document.getElementById("progressBar");
-    const testMessage = document.getElementById("testMessage");
-    const testTime = document.getElementById("testTime");
-
-    const connectionText = document.getElementById("connectionText");
-    const statusStat = document.getElementById("statusStat");
-    const networkStatus = document.getElementById("networkStatus");
-
-    const connectionType = document.getElementById("connectionType");
-    const effectiveType = document.getElementById("effectiveType");
-    const browserDownlink = document.getElementById("browserDownlink");
-
-    const canvas = document.getElementById("speedChart");
-    const chartEmpty = document.getElementById("chartEmpty");
-    const clearButton = document.getElementById("clearButton");
-
-    /* ==============================
-       VARIABLES
-    ============================== */
-
-    let testing = false;
-    let monitoring = false;
-    let monitorTimer = null;
-    let history = [];
+   Live Internet Speed Test & Continuous Monitor
+   Powered by Cloudflare's browser speed-test engine
+========================================================= */
 
 
-    /* ==============================
-       SAFETY CHECK
-    ============================== */
+/* =========================================================
+   CLOUDFARE SPEED TEST ENGINE
+========================================================= */
 
-    if (!testButton) {
-        console.error("SpeedMeter: testButton not found.");
+let SpeedTestEngine = null;
+let engine = null;
+
+
+/* =========================================================
+   ELEMENTS
+========================================================= */
+
+const testButton =
+    document.getElementById("testButton");
+
+const buttonText =
+    document.getElementById("buttonText");
+
+const buttonIcon =
+    document.getElementById("buttonIcon");
+
+const monitorButton =
+    document.getElementById("monitorButton");
+
+const themeToggle =
+    document.getElementById("themeToggle");
+
+const themeIcon =
+    document.getElementById("themeIcon");
+
+const themeColor =
+    document.getElementById("themeColor");
+
+const downloadSpeed =
+    document.getElementById("downloadSpeed");
+
+const downloadStat =
+    document.getElementById("downloadStat");
+
+const uploadStat =
+    document.getElementById("uploadStat");
+
+const pingStat =
+    document.getElementById("pingStat");
+
+const progressBar =
+    document.getElementById("progressBar");
+
+const testMessage =
+    document.getElementById("testMessage");
+
+const testTime =
+    document.getElementById("testTime");
+
+const connectionText =
+    document.getElementById("connectionText");
+
+const statusStat =
+    document.getElementById("statusStat");
+
+const connectionType =
+    document.getElementById("connectionType");
+
+const effectiveType =
+    document.getElementById("effectiveType");
+
+const browserDownlink =
+    document.getElementById("browserDownlink");
+
+const networkStatus =
+    document.getElementById("networkStatus");
+
+const canvas =
+    document.getElementById("speedChart");
+
+const chartEmpty =
+    document.getElementById("chartEmpty");
+
+const clearButton =
+    document.getElementById("clearButton");
+
+
+/* =========================================================
+   STATE
+========================================================= */
+
+let testing = false;
+
+let monitoring = false;
+
+let monitorTimer = null;
+
+let history = [];
+
+let currentEngine = null;
+
+let lastDownload = null;
+
+let lastUpload = null;
+
+let lastPing = null;
+
+
+/*
+    Monitoring waits this long after one complete test
+    before beginning another one.
+*/
+
+const MONITOR_INTERVAL = 15000;
+
+
+/* =========================================================
+   LOAD CLOUDFLARE ENGINE
+========================================================= */
+
+async function loadSpeedTestEngine() {
+
+    if (SpeedTestEngine) {
+
+        return SpeedTestEngine;
+    }
+
+
+    try {
+
+        /*
+            Load the official Cloudflare speed-test
+            package directly from a public CDN.
+
+            Version 1.12.1 is the current release
+            at the time this project is being built.
+        */
+
+        const module =
+            await import(
+                "https://cdn.jsdelivr.net/npm/@cloudflare/speedtest@1.12.1/+esm"
+            );
+
+
+        SpeedTestEngine =
+            module.default ||
+            module.SpeedTest ||
+            module;
+
+
+        return SpeedTestEngine;
+
+    } catch (error) {
+
+        console.error(
+            "Speed test engine failed to load:",
+            error
+        );
+
+
+        throw error;
+    }
+}
+
+
+/* =========================================================
+   THEME
+========================================================= */
+
+function loadTheme() {
+
+    const saved =
+        localStorage.getItem(
+            "speedmeter-theme"
+        );
+
+
+    if (saved === "dark") {
+
+        document.body.classList.add(
+            "dark"
+        );
+
+        themeIcon.textContent =
+            "☀";
+
+        themeColor.setAttribute(
+            "content",
+            "#000000"
+        );
+
+    } else {
+
+        themeIcon.textContent =
+            "☾";
+
+        themeColor.setAttribute(
+            "content",
+            "#ffffff"
+        );
+    }
+}
+
+
+themeToggle.addEventListener(
+    "click",
+    () => {
+
+        const dark =
+            document.body.classList.toggle(
+                "dark"
+            );
+
+
+        localStorage.setItem(
+            "speedmeter-theme",
+            dark
+                ? "dark"
+                : "light"
+        );
+
+
+        themeIcon.textContent =
+            dark
+                ? "☀"
+                : "☾";
+
+
+        themeColor.setAttribute(
+            "content",
+            dark
+                ? "#000000"
+                : "#ffffff"
+        );
+
+
+        drawChart();
+    }
+);
+
+
+loadTheme();
+
+
+/* =========================================================
+   CONNECTION INFORMATION
+========================================================= */
+
+function updateConnection() {
+
+    const online =
+        navigator.onLine;
+
+
+    if (online) {
+
+        connectionText.textContent =
+            "Connected";
+
+        statusStat.textContent =
+            "Online";
+
+        statusStat.className =
+            "online";
+
+        networkStatus.textContent =
+            "Online";
+
+    } else {
+
+        connectionText.textContent =
+            "Offline";
+
+        statusStat.textContent =
+            "Offline";
+
+        statusStat.className =
+            "";
+
+        statusStat.style.color =
+            "var(--red)";
+
+        networkStatus.textContent =
+            "Offline";
+    }
+
+
+    /*
+        Network Information API.
+
+        Not supported by every browser,
+        especially Safari/iPhone.
+    */
+
+    const connection =
+        navigator.connection ||
+        navigator.mozConnection ||
+        navigator.webkitConnection;
+
+
+    if (connection) {
+
+        connectionType.textContent =
+            connection.type ||
+            "Available";
+
+
+        effectiveType.textContent =
+            connection.effectiveType ||
+            "—";
+
+
+        if (
+            typeof connection.downlink ===
+            "number"
+        ) {
+
+            browserDownlink.textContent =
+                connection.downlink.toFixed(2);
+
+        } else {
+
+            browserDownlink.textContent =
+                "—";
+        }
+
+    } else {
+
+        connectionType.textContent =
+            "Browser";
+
+        effectiveType.textContent =
+            "—";
+
+        browserDownlink.textContent =
+            "—";
+    }
+
+}
+
+
+window.addEventListener(
+    "online",
+    updateConnection
+);
+
+
+window.addEventListener(
+    "offline",
+    updateConnection
+);
+
+
+updateConnection();
+
+
+/* =========================================================
+   FORMAT SPEED
+========================================================= */
+
+function formatSpeed(bps) {
+
+    if (
+        typeof bps !== "number" ||
+        !Number.isFinite(bps) ||
+        bps <= 0
+    ) {
+
+        return "0.00";
+    }
+
+
+    const mbps =
+        bps / 1000000;
+
+
+    if (mbps >= 1000) {
+
+        return (
+            mbps / 1000
+        ).toFixed(2);
+
+    }
+
+
+    return mbps.toFixed(2);
+}
+
+
+/* =========================================================
+   UPDATE DOWNLOAD
+========================================================= */
+
+function updateDownloadSpeed(bps) {
+
+    if (
+        typeof bps !== "number" ||
+        !Number.isFinite(bps) ||
+        bps <= 0
+    ) {
+
         return;
     }
 
 
-    /* ==============================
-       THEME
-    ============================== */
+    const value =
+        formatSpeed(bps);
 
-    function loadTheme() {
 
-        const saved = localStorage.getItem("speedmeter-theme");
+    lastDownload =
+        parseFloat(value);
 
-        if (saved === "dark") {
 
-            document.body.classList.add("dark");
+    downloadSpeed.textContent =
+        value;
 
-            if (themeIcon) {
-                themeIcon.textContent = "☀";
-            }
+    downloadStat.textContent =
+        value;
 
-            if (themeColor) {
-                themeColor.setAttribute("content", "#000000");
-            }
 
-        } else {
+    /*
+        Visual live movement.
 
-            if (themeIcon) {
-                themeIcon.textContent = "☾";
-            }
+        The bar never represents an absolute
+        internet limit. It simply gives the
+        user visual feedback that the test
+        is actively running.
+    */
 
-            if (themeColor) {
-                themeColor.setAttribute("content", "#ffffff");
-            }
-        }
+    const visual =
+        Math.min(
+            100,
+            Math.max(
+                8,
+                lastDownload /
+                2
+            )
+        );
+
+
+    progressBar.style.width =
+        visual + "%";
+}
+
+
+/* =========================================================
+   UPDATE UPLOAD
+========================================================= */
+
+function updateUploadSpeed(bps) {
+
+    if (
+        typeof bps !== "number" ||
+        !Number.isFinite(bps) ||
+        bps <= 0
+    ) {
+
+        return;
     }
 
 
-    if (themeToggle) {
-
-        themeToggle.addEventListener("click", () => {
-
-            const dark =
-                document.body.classList.toggle("dark");
-
-            localStorage.setItem(
-                "speedmeter-theme",
-                dark ? "dark" : "light"
-            );
-
-            if (themeIcon) {
-                themeIcon.textContent =
-                    dark ? "☀" : "☾";
-            }
-
-            if (themeColor) {
-                themeColor.setAttribute(
-                    "content",
-                    dark ? "#000000" : "#ffffff"
-                );
-            }
-
-            drawChart();
-        });
-    }
-
-    loadTheme();
+    const value =
+        formatSpeed(bps);
 
 
-    /* ==============================
-       CONNECTION STATUS
-    ============================== */
-
-    function updateConnection() {
-
-        const online = navigator.onLine;
-
-        if (online) {
-
-            if (connectionText) {
-                connectionText.textContent = "Connected";
-            }
-
-            if (statusStat) {
-                statusStat.textContent = "Online";
-                statusStat.className = "online";
-                statusStat.style.color = "";
-            }
-
-            if (networkStatus) {
-                networkStatus.textContent = "Online";
-            }
-
-        } else {
-
-            if (connectionText) {
-                connectionText.textContent = "Offline";
-            }
-
-            if (statusStat) {
-                statusStat.textContent = "Offline";
-                statusStat.className = "";
-                statusStat.style.color = "var(--red)";
-            }
-
-            if (networkStatus) {
-                networkStatus.textContent = "Offline";
-            }
-        }
+    lastUpload =
+        parseFloat(value);
 
 
-        const connection =
-            navigator.connection ||
-            navigator.mozConnection ||
-            navigator.webkitConnection;
+    uploadStat.textContent =
+        value;
+}
 
 
-        if (connection) {
+/* =========================================================
+   UPDATE PING
+========================================================= */
 
-            if (connectionType) {
-                connectionType.textContent =
-                    connection.type || "Available";
-            }
+function updatePing(value) {
 
-            if (effectiveType) {
-                effectiveType.textContent =
-                    connection.effectiveType || "—";
-            }
+    if (
+        typeof value !== "number" ||
+        !Number.isFinite(value) ||
+        value <= 0
+    ) {
 
-            if (browserDownlink) {
-
-                if (connection.downlink) {
-
-                    browserDownlink.textContent =
-                        connection.downlink.toFixed(2);
-
-                } else {
-
-                    browserDownlink.textContent = "—";
-                }
-            }
-
-        } else {
-
-            if (connectionType) {
-                connectionType.textContent =
-                    "Not available";
-            }
-
-            if (effectiveType) {
-                effectiveType.textContent = "—";
-            }
-
-            if (browserDownlink) {
-                browserDownlink.textContent = "—";
-            }
-        }
+        return;
     }
 
 
-    window.addEventListener(
-        "online",
-        updateConnection
-    );
+    lastPing =
+        Math.round(value);
 
-    window.addEventListener(
-        "offline",
-        updateConnection
-    );
 
-    updateConnection();
+    pingStat.textContent =
+        lastPing;
+}
 
 
-    /* ==============================
-       PING
-    ============================== */
+/* =========================================================
+   READ CURRENT RESULTS
+========================================================= */
 
-    async function testPing() {
+function readLiveResults(speedEngine) {
 
-        const url =
-            "https://www.gstatic.com/generate_204";
+    try {
 
-        const start = performance.now();
+        const results =
+            speedEngine.results;
 
-        try {
 
-            await fetch(
-                url + "?t=" + Date.now(),
-                {
-                    cache: "no-store",
-                    mode: "no-cors"
-                }
-            );
+        /*
+            DOWNLOAD
+        */
 
-            const result =
-                Math.round(
-                    performance.now() - start
-                );
+        if (
+            results &&
+            typeof results.getDownloadBandwidthPoints ===
+            "function"
+        ) {
 
-            if (pingStat) {
-                pingStat.textContent = result;
-            }
+            const points =
+                results.getDownloadBandwidthPoints();
 
-            return result;
 
-        } catch (error) {
+            if (
+                points &&
+                points.length
+            ) {
 
-            console.warn("Ping failed:", error);
+                const latest =
+                    points[
+                        points.length - 1
+                    ];
 
-            if (pingStat) {
-                pingStat.textContent = "—";
-            }
 
-            return null;
-        }
-    }
+                if (
+                    latest &&
+                    typeof latest.bps ===
+                    "number"
+                ) {
 
-
-    /* ==============================
-       DOWNLOAD TEST
-    ============================== */
-
-    async function testDownload() {
-
-        const bytes =
-            10 * 1024 * 1024;
-
-        const url =
-            "https://speed.cloudflare.com/__down?bytes=" +
-            bytes +
-            "&cache=" +
-            Date.now();
-
-
-        const start =
-            performance.now();
-
-
-        try {
-
-            const controller =
-                new AbortController();
-
-            const timeout =
-                setTimeout(() => {
-                    controller.abort();
-                }, 15000);
-
-
-            const response =
-                await fetch(
-                    url,
-                    {
-                        cache: "no-store",
-                        signal: controller.signal
-                    }
-                );
-
-
-            clearTimeout(timeout);
-
-
-            if (!response.body) {
-                throw new Error(
-                    "Streaming not supported"
-                );
-            }
-
-
-            const reader =
-                response.body.getReader();
-
-
-            let received = 0;
-
-
-            while (true) {
-
-                const result =
-                    await reader.read();
-
-
-                if (result.done) {
-                    break;
-                }
-
-
-                received +=
-                    result.value.length;
-
-
-                const elapsed =
-                    (
-                        performance.now() -
-                        start
-                    ) / 1000;
-
-
-                if (elapsed > 0) {
-
-                    const speed =
-                        (
-                            received *
-                            8 /
-                            elapsed /
-                            1000000
-                        );
-
-
-                    if (downloadSpeed) {
-                        downloadSpeed.textContent =
-                            speed.toFixed(2);
-                    }
-
-
-                    if (downloadStat) {
-                        downloadStat.textContent =
-                            speed.toFixed(2);
-                    }
-
-
-                    if (progressBar) {
-
-                        progressBar.style.width =
-                            Math.min(
-                                100,
-                                received /
-                                bytes *
-                                100
-                            ) + "%";
-                    }
-                }
-            }
-
-
-            const seconds =
-                (
-                    performance.now() -
-                    start
-                ) / 1000;
-
-
-            if (received === 0) {
-                throw new Error(
-                    "No data received"
-                );
-            }
-
-
-            const speed =
-                received *
-                8 /
-                seconds /
-                1000000;
-
-
-            if (downloadSpeed) {
-                downloadSpeed.textContent =
-                    speed.toFixed(2);
-            }
-
-
-            if (downloadStat) {
-                downloadStat.textContent =
-                    speed.toFixed(2);
-            }
-
-
-            if (progressBar) {
-                progressBar.style.width =
-                    "100%";
-            }
-
-
-            return speed;
-
-
-        } catch (error) {
-
-            console.error(
-                "Download test failed:",
-                error
-            );
-
-
-            if (testMessage) {
-                testMessage.textContent =
-                    "Download test unavailable";
-            }
-
-
-            return null;
-        }
-    }
-
-
-    /* ==============================
-       UPLOAD TEST
-    ============================== */
-
-    async function testUpload() {
-
-        const size =
-            512 * 1024;
-
-
-        const data =
-            new Uint8Array(size);
-
-
-        try {
-
-            crypto.getRandomValues(
-                data.subarray(
-                    0,
-                    Math.min(
-                        65536,
-                        data.length
-                    )
-                )
-            );
-
-        } catch (error) {
-            console.warn(
-                "Random data unavailable"
-            );
-        }
-
-
-        const start =
-            performance.now();
-
-
-        try {
-
-            const controller =
-                new AbortController();
-
-
-            const timeout =
-                setTimeout(() => {
-                    controller.abort();
-                }, 10000);
-
-
-            await fetch(
-                "https://httpbin.org/post?x=" +
-                Date.now(),
-                {
-                    method: "POST",
-                    body: data,
-                    cache: "no-store",
-                    signal: controller.signal
-                }
-            );
-
-
-            clearTimeout(timeout);
-
-
-            const seconds =
-                (
-                    performance.now() -
-                    start
-                ) / 1000;
-
-
-            const speed =
-                size *
-                8 /
-                seconds /
-                1000000;
-
-
-            if (uploadStat) {
-                uploadStat.textContent =
-                    speed.toFixed(2);
-            }
-
-
-            return speed;
-
-
-        } catch (error) {
-
-            console.warn(
-                "Upload test failed:",
-                error
-            );
-
-
-            if (uploadStat) {
-                uploadStat.textContent =
-                    "—";
-            }
-
-
-            return null;
-        }
-    }
-
-
-    /* ==============================
-       MAIN SPEED TEST
-    ============================== */
-
-    async function runTest() {
-
-        if (testing) {
-            return;
-        }
-
-
-        if (!navigator.onLine) {
-
-            if (testMessage) {
-                testMessage.textContent =
-                    "You are offline.";
-            }
-
-            return;
-        }
-
-
-        testing = true;
-
-
-        /* IMMEDIATELY UPDATE BUTTON */
-
-        testButton.disabled = true;
-
-        if (monitorButton) {
-            monitorButton.disabled = true;
-        }
-
-
-        if (buttonIcon) {
-            buttonIcon.textContent = "◌";
-        }
-
-
-        if (buttonText) {
-            buttonText.textContent =
-                "Testing...";
-        }
-
-
-        if (testMessage) {
-            testMessage.textContent =
-                "Testing your connection...";
-        }
-
-
-        if (progressBar) {
-            progressBar.style.width =
-                "0%";
-        }
-
-
-        try {
-
-            /* PING */
-
-            if (testMessage) {
-                testMessage.textContent =
-                    "Checking ping...";
-            }
-
-            await testPing();
-
-
-            /* DOWNLOAD */
-
-            if (testMessage) {
-                testMessage.textContent =
-                    "Testing download speed...";
-            }
-
-            const download =
-                await testDownload();
-
-
-            /* UPLOAD */
-
-            if (testMessage) {
-                testMessage.textContent =
-                    "Testing upload speed...";
-            }
-
-            await testUpload();
-
-
-            /* HISTORY */
-
-            if (download !== null) {
-                addHistory(download);
-            }
-
-
-            /* TIME */
-
-            if (testTime) {
-
-                testTime.textContent =
-                    new Date().toLocaleTimeString(
-                        [],
-                        {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            second: "2-digit"
-                        }
+                    updateDownloadSpeed(
+                        latest.bps
                     );
+                }
+            }
+        }
+
+
+        /*
+            UPLOAD
+        */
+
+        if (
+            results &&
+            typeof results.getUploadBandwidthPoints ===
+            "function"
+        ) {
+
+            const points =
+                results.getUploadBandwidthPoints();
+
+
+            if (
+                points &&
+                points.length
+            ) {
+
+                const latest =
+                    points[
+                        points.length - 1
+                    ];
+
+
+                if (
+                    latest &&
+                    typeof latest.bps ===
+                    "number"
+                ) {
+
+                    updateUploadSpeed(
+                        latest.bps
+                    );
+                }
+            }
+        }
+
+
+        /*
+            LATENCY
+        */
+
+        if (
+            results &&
+            typeof results.getUnloadedLatency ===
+            "function"
+        ) {
+
+            const latency =
+                results.getUnloadedLatency();
+
+
+            if (
+                typeof latency ===
+                "number"
+            ) {
+
+                updatePing(
+                    latency
+                );
+            }
+        }
+
+    } catch (error) {
+
+        console.debug(
+            "Live result update:",
+            error
+        );
+    }
+}
+
+
+/* =========================================================
+   CREATE ENGINE
+========================================================= */
+
+async function createEngine() {
+
+    const SpeedTest =
+        await loadSpeedTestEngine();
+
+
+    /*
+        We deliberately configure the test ourselves.
+
+        This avoids relying on the deprecated public
+        packet-loss TURN server.
+
+        The test measures:
+        - latency
+        - download
+        - upload
+    */
+
+    const config = {
+
+        autoStart: false,
+
+        measureDownloadLoadedLatency: true,
+
+        measureUploadLoadedLatency: true,
+
+        bandwidthFinishRequestDuration:
+            1200,
+
+        measurements: [
+
+            {
+                type: "latency",
+
+                numPackets: 5
+            },
+
+
+            {
+                type: "download",
+
+                bytes: 100000,
+
+                count: 3,
+
+                bypassMinDuration: true
+            },
+
+
+            {
+                type: "download",
+
+                bytes: 1000000,
+
+                count: 4
+            },
+
+
+            {
+                type: "download",
+
+                bytes: 5000000,
+
+                count: 3
+            },
+
+
+            {
+                type: "upload",
+
+                bytes: 100000,
+
+                count: 3,
+
+                bypassMinDuration: true
+            },
+
+
+            {
+                type: "upload",
+
+                bytes: 1000000,
+
+                count: 4
+            },
+
+
+            {
+                type: "upload",
+
+                bytes: 5000000,
+
+                count: 2
             }
 
+        ]
+    };
 
-            if (download !== null) {
 
-                if (testMessage) {
-                    testMessage.textContent =
-                        "Speed test completed";
-                }
+    const speedEngine =
+        new SpeedTest(
+            config
+        );
+
+
+    speedEngine.onRunningChange =
+        running => {
+
+            if (running) {
+
+                testing = true;
 
             } else {
 
-                if (testMessage) {
+                testing = false;
+            }
+        };
+
+
+    speedEngine.onResultsChange =
+        info => {
+
+            /*
+                This is the important part.
+
+                Cloudflare calls this while the test
+                is progressing, allowing SpeedMeter
+                to update the UI live.
+            */
+
+            readLiveResults(
+                speedEngine
+            );
+
+
+            if (testing) {
+
+                if (
+                    info &&
+                    info.type ===
+                    "download"
+                ) {
+
                     testMessage.textContent =
-                        "Speed test could not measure download";
+                        "Measuring download speed…";
+
+                } else if (
+                    info &&
+                    info.type ===
+                    "upload"
+                ) {
+
+                    testMessage.textContent =
+                        "Measuring upload speed…";
+
+                } else if (
+                    info &&
+                    info.type ===
+                    "latency"
+                ) {
+
+                    testMessage.textContent =
+                        "Measuring connection latency…";
+
+                } else {
+
+                    testMessage.textContent =
+                        "Testing your connection…";
                 }
             }
+        };
 
 
-        } catch (error) {
+    speedEngine.onError =
+        error => {
 
             console.error(
                 "Speed test error:",
@@ -693,295 +810,356 @@ document.addEventListener("DOMContentLoaded", () => {
             );
 
 
-            if (testMessage) {
-                testMessage.textContent =
-                    "Test could not be completed";
-            }
+            testMessage.textContent =
+                "Speed test encountered an error";
 
-        } finally {
-
-            testing = false;
+        };
 
 
-            testButton.disabled =
-                false;
+    return speedEngine;
+}
 
 
-            if (monitorButton) {
-                monitorButton.disabled =
-                    false;
-            }
+/* =========================================================
+   FINAL RESULT
+========================================================= */
 
+function processFinalResults(
+    results
+) {
 
-            if (buttonIcon) {
-                buttonIcon.textContent =
-                    "▶";
-            }
+    try {
 
+        /*
+            Final download
+        */
 
-            if (buttonText) {
-
-                buttonText.textContent =
-                    monitoring
-                        ? "Run Test"
-                        : "Start Speed Test";
-            }
-        }
-    }
-
-
-    /* ==============================
-       HISTORY
-    ============================== */
-
-    function addHistory(speed) {
-
-        history.push({
-            speed: speed,
-            time: new Date()
-        });
-
-
-        if (history.length > 30) {
-            history.shift();
-        }
-
-
-        if (chartEmpty) {
-            chartEmpty.style.display =
-                "none";
-        }
-
-
-        drawChart();
-    }
-
-
-    /* ==============================
-       CHART
-    ============================== */
-
-    function drawChart() {
-
-        if (!canvas) {
-            return;
-        }
-
-
-        const ctx =
-            canvas.getContext("2d");
-
-
-        if (!ctx) {
-            return;
-        }
-
-
-        const rect =
-            canvas.getBoundingClientRect();
-
-
-        const ratio =
-            window.devicePixelRatio || 1;
-
-
-        canvas.width =
-            rect.width * ratio;
-
-
-        canvas.height =
-            rect.height * ratio;
-
-
-        ctx.setTransform(
-            ratio,
-            0,
-            0,
-            ratio,
-            0,
-            0
-        );
-
-
-        const width =
-            rect.width;
-
-
-        const height =
-            rect.height;
-
-
-        ctx.clearRect(
-            0,
-            0,
-            width,
-            height
-        );
-
-
-        if (history.length === 0) {
-
-            if (chartEmpty) {
-                chartEmpty.style.display =
-                    "flex";
-            }
-
-            return;
-        }
-
-
-        if (chartEmpty) {
-            chartEmpty.style.display =
-                "none";
-        }
-
-
-        const dark =
-            document.body.classList.contains(
-                "dark"
-            );
-
-
-        const grid =
-            dark
-                ? "rgba(255,255,255,.07)"
-                : "rgba(0,0,0,.06)";
-
-
-        const line =
-            dark
-                ? "#0a84ff"
-                : "#007aff";
-
-
-        /* GRID */
-
-        ctx.strokeStyle =
-            grid;
-
-        ctx.lineWidth = 1;
-
-
-        for (
-            let i = 0;
-            i <= 4;
-            i++
+        if (
+            results &&
+            typeof results.getDownloadBandwidth ===
+            "function"
         ) {
 
-            const y =
-                15 +
-                (
-                    height - 30
-                ) /
-                4 *
-                i;
+            const bps =
+                results.getDownloadBandwidth();
 
 
-            ctx.beginPath();
+            if (
+                typeof bps ===
+                "number" &&
+                bps > 0
+            ) {
 
-            ctx.moveTo(
-                0,
-                y
-            );
-
-            ctx.lineTo(
-                width,
-                y
-            );
-
-            ctx.stroke();
+                updateDownloadSpeed(
+                    bps
+                );
+            }
         }
 
 
-        /* MAX */
+        /*
+            Final upload
+        */
 
-        const max =
-            Math.max(
-                ...history.map(
-                    item => item.speed
-                ),
-                10
-            );
+        if (
+            results &&
+            typeof results.getUploadBandwidth ===
+            "function"
+        ) {
 
-
-        /* LINE */
-
-        ctx.beginPath();
+            const bps =
+                results.getUploadBandwidth();
 
 
-        history.forEach(
-            (item, index) => {
+            if (
+                typeof bps ===
+                "number" &&
+                bps > 0
+            ) {
 
-                const x =
-                    history.length === 1
-                        ? width / 2
-                        :
-                        (
-                            index /
-                            (
-                                history.length - 1
-                            )
-                        ) *
-                        width;
-
-
-                const y =
-                    height -
-                    20 -
-                    (
-                        item.speed /
-                        max
-                    ) *
-                    (
-                        height - 40
-                    );
-
-
-                if (index === 0) {
-
-                    ctx.moveTo(
-                        x,
-                        y
-                    );
-
-                } else {
-
-                    ctx.lineTo(
-                        x,
-                        y
-                    );
-                }
+                updateUploadSpeed(
+                    bps
+                );
             }
+        }
+
+
+        /*
+            Final ping
+        */
+
+        if (
+            results &&
+            typeof results.getUnloadedLatency ===
+            "function"
+        ) {
+
+            const latency =
+                results.getUnloadedLatency();
+
+
+            if (
+                typeof latency ===
+                "number"
+            ) {
+
+                updatePing(
+                    latency
+                );
+            }
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Final result error:",
+            error
+        );
+    }
+}
+
+
+/* =========================================================
+   SAVE HISTORY
+========================================================= */
+
+function saveHistory() {
+
+    if (
+        typeof lastDownload !==
+        "number" ||
+        lastDownload <= 0
+    ) {
+
+        return;
+    }
+
+
+    history.push({
+
+        download:
+            lastDownload,
+
+        upload:
+            typeof lastUpload ===
+            "number"
+                ? lastUpload
+                : null,
+
+        ping:
+            typeof lastPing ===
+            "number"
+                ? lastPing
+                : null,
+
+        time:
+            new Date()
+    });
+
+
+    /*
+        Keep the latest 40 results.
+    */
+
+    if (
+        history.length >
+        40
+    ) {
+
+        history.shift();
+    }
+
+
+    chartEmpty.style.display =
+        "none";
+
+
+    drawChart();
+}
+
+
+/* =========================================================
+   RUN ONE TEST
+========================================================= */
+
+async function runTest() {
+
+    if (testing) {
+
+        return;
+    }
+
+
+    if (!navigator.onLine) {
+
+        testMessage.textContent =
+            "You are offline.";
+
+        return;
+    }
+
+
+    testing = true;
+
+
+    testButton.disabled =
+        true;
+
+
+    monitorButton.disabled =
+        true;
+
+
+    buttonIcon.textContent =
+        "◌";
+
+
+    buttonText.textContent =
+        "Testing…";
+
+
+    testMessage.textContent =
+        "Starting speed test…";
+
+
+    progressBar.style.width =
+        "5%";
+
+
+    /*
+        Reset live result placeholders.
+
+        Keep previous final values visible until
+        new measurements start arriving.
+    */
+
+    lastDownload =
+        null;
+
+    lastUpload =
+        null;
+
+    lastPing =
+        null;
+
+
+    try {
+
+        currentEngine =
+            await createEngine();
+
+
+        engine =
+            currentEngine;
+
+
+        /*
+            Attach final callback before play.
+        */
+
+        currentEngine.onFinish =
+            results => {
+
+                processFinalResults(
+                    results
+                );
+
+
+                progressBar.style.width =
+                    "100%";
+
+
+                testMessage.textContent =
+                    "Speed test completed";
+
+
+                const now =
+                    new Date();
+
+
+                testTime.textContent =
+                    now.toLocaleTimeString(
+                        [],
+                        {
+                            hour:
+                                "2-digit",
+
+                            minute:
+                                "2-digit",
+
+                            second:
+                                "2-digit"
+                        }
+                    );
+
+
+                saveHistory();
+
+
+                testing =
+                    false;
+
+
+                testButton.disabled =
+                    false;
+
+
+                monitorButton.disabled =
+                    false;
+
+
+                buttonIcon.textContent =
+                    "▶";
+
+
+                buttonText.textContent =
+                    "Start Speed Test";
+
+
+                currentEngine =
+                    null;
+
+            };
+
+
+        /*
+            START
+        */
+
+        currentEngine.play();
+
+
+    } catch (error) {
+
+        console.error(
+            "Could not start speed test:",
+            error
         );
 
 
-        ctx.strokeStyle =
-            line;
-
-        ctx.lineWidth = 3;
-
-        ctx.lineCap =
-            "round";
-
-        ctx.lineJoin =
-            "round";
-
-        ctx.stroke();
+        testMessage.textContent =
+            "Unable to start speed test";
 
 
-        /* POINTS */
+        testing =
+            false;
 
-        history.forEach(
-            (item, index) => {
 
-                const x =
-                    history.length === 1
-                        ? width / 2
-                        :
-                        (
-                            index /
-                            (
-                                history.length - 1
-                            )
-                        ) *
-                        widt
+        testButton.disabled =
+            false;
+
+
+        monitorButton.disabled =
+            false;
+
+
+        buttonIcon.textContent =
+            "▶";
+
+
+        buttonText.textContent =
+            "Start Speed Test";
+
+
+        currentEngine 
