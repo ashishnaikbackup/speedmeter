@@ -1162,4 +1162,365 @@ async function runTest() {
             "Start Speed Test";
 
 
-        currentEngine 
+        currentEngine =
+            null;
+    }
+}
+
+
+/* =========================================================
+   MONITORING
+========================================================= */
+
+const monitorButtonLabel =
+    monitorButton.querySelector("span");
+
+
+function setMonitoringUI(isMonitoring) {
+
+    if (monitorButtonLabel) {
+
+        monitorButtonLabel.textContent =
+            isMonitoring
+                ? "Stop Monitoring"
+                : "Start Monitoring";
+    }
+}
+
+
+async function monitorLoop() {
+
+    if (!monitoring) {
+
+        return;
+    }
+
+
+    await runTest();
+
+
+    if (!monitoring) {
+
+        return;
+    }
+
+
+    monitorTimer =
+        setTimeout(
+            monitorLoop,
+            MONITOR_INTERVAL
+        );
+}
+
+
+function startMonitoring() {
+
+    if (monitoring) {
+
+        return;
+    }
+
+
+    monitoring = true;
+
+
+    setMonitoringUI(true);
+
+
+    monitorLoop();
+}
+
+
+function stopMonitoring() {
+
+    monitoring = false;
+
+
+    if (monitorTimer) {
+
+        clearTimeout(
+            monitorTimer
+        );
+
+        monitorTimer = null;
+    }
+
+
+    setMonitoringUI(false);
+}
+
+
+/* =========================================================
+   CHART
+========================================================= */
+
+function drawChart() {
+
+    if (
+        !canvas ||
+        !canvas.getContext
+    ) {
+
+        return;
+    }
+
+
+    const ctx =
+        canvas.getContext("2d");
+
+
+    const rect =
+        canvas.parentElement.getBoundingClientRect();
+
+    const dpr =
+        window.devicePixelRatio || 1;
+
+
+    canvas.width =
+        rect.width * dpr;
+
+    canvas.height =
+        rect.height * dpr;
+
+
+    ctx.setTransform(
+        dpr, 0, 0, dpr, 0, 0
+    );
+
+
+    const width = rect.width;
+
+    const height = rect.height;
+
+
+    ctx.clearRect(
+        0, 0, width, height
+    );
+
+
+    if (!history.length) {
+
+        return;
+    }
+
+
+    const styles =
+        getComputedStyle(document.body);
+
+    const blue =
+        styles.getPropertyValue("--blue").trim() ||
+        "#007aff";
+
+    const green =
+        styles.getPropertyValue("--green").trim() ||
+        "#34c759";
+
+    const border =
+        styles.getPropertyValue("--border").trim() ||
+        "rgba(0,0,0,0.08)";
+
+
+    const padding = 20;
+
+
+    const downloadValues =
+        history.map(
+            item => item.download || 0
+        );
+
+    const uploadValues =
+        history.map(
+            item => item.upload || 0
+        );
+
+
+    const maxValue =
+        Math.max(
+            1,
+            ...downloadValues,
+            ...uploadValues
+        );
+
+
+    /*
+        Grid lines
+    */
+
+    ctx.strokeStyle = border;
+
+    ctx.lineWidth = 1;
+
+
+    const gridLines = 4;
+
+
+    for (
+        let i = 0;
+        i <= gridLines;
+        i++
+    ) {
+
+        const y =
+            padding +
+            ((height - padding * 2) / gridLines) * i;
+
+
+        ctx.beginPath();
+
+        ctx.moveTo(padding, y);
+
+        ctx.lineTo(width - padding, y);
+
+        ctx.stroke();
+    }
+
+
+    function pointX(index) {
+
+        if (history.length === 1) {
+
+            return width / 2;
+        }
+
+
+        return (
+            padding +
+            ((width - padding * 2) /
+                (history.length - 1)) *
+                index
+        );
+    }
+
+
+    function pointY(value) {
+
+        return (
+            height -
+            padding -
+            (value / maxValue) *
+                (height - padding * 2)
+        );
+    }
+
+
+    function drawLine(values, color) {
+
+        if (!values.length) {
+
+            return;
+        }
+
+
+        ctx.beginPath();
+
+
+        values.forEach(
+            (value, index) => {
+
+                const x = pointX(index);
+
+                const y = pointY(value);
+
+
+                if (index === 0) {
+
+                    ctx.moveTo(x, y);
+
+                } else {
+
+                    ctx.lineTo(x, y);
+                }
+            }
+        );
+
+
+        ctx.strokeStyle = color;
+
+        ctx.lineWidth = 2.5;
+
+        ctx.lineJoin = "round";
+
+        ctx.lineCap = "round";
+
+        ctx.stroke();
+
+
+        values.forEach(
+            (value, index) => {
+
+                const x = pointX(index);
+
+                const y = pointY(value);
+
+
+                ctx.beginPath();
+
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+
+                ctx.fillStyle = color;
+
+                ctx.fill();
+            }
+        );
+    }
+
+
+    drawLine(downloadValues, blue);
+
+    drawLine(uploadValues, green);
+}
+
+
+/* =========================================================
+   EVENTS
+========================================================= */
+
+testButton.addEventListener(
+    "click",
+    () => {
+
+        runTest();
+    }
+);
+
+
+monitorButton.addEventListener(
+    "click",
+    () => {
+
+        if (monitoring) {
+
+            stopMonitoring();
+
+        } else {
+
+            startMonitoring();
+        }
+    }
+);
+
+
+clearButton.addEventListener(
+    "click",
+    () => {
+
+        history = [];
+
+        chartEmpty.style.display =
+            "flex";
+
+        drawChart();
+    }
+);
+
+
+window.addEventListener(
+    "resize",
+    () => {
+
+        if (history.length) {
+
+            drawChart();
+        }
+    }
+);
