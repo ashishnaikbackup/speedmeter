@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Internet Speed Test – Check Download, Upload & Ping | SpeedMeter
+    </title>
+
+    <meta
+        name="description"
+        content="Free internet speed test to check download speed, upload speed, ping and connection quality. Monitor your internet connection in real time with SpeedMeter."
+    >
+
+    <meta
+        name="keywords"
+        content="internet speed test, speed test, wifi speed test, internet speed check, download speed test, upload speed test, ping test, network speed test, internet speed monitor"
+    >
+
+    <meta
+        name="author"
+        content="SpeedMeter"
+    >
+
+    <meta
+        name="robots"
+        content="index, follow"
+    >
+
+    <meta
+        name="theme-color"
+        content="#ffffff"
+        id="themeColor"
+    >
+
+    <!-- CHANGE THIS -->
+    <link
+        rel="canonical"
+        href="https://YOUR-USERNAME.github.io/speedmeter/"
+    >
+
+
+    <!-- Open Graph -->
+
+    <meta
+        property="og:type"
+        content="website"
+    >
+
+    <meta
+        property="og:title"
+        content="Internet Speed Test | SpeedMeter"
+    >
+
+    <meta
+        property="og:description"
+        content="Check your download speed, upload speed and ping with SpeedMeter."
+    >
+
+    <meta
+        property="og:site_name"
+        content="SpeedMeter"
+    >
+
+    <!-- CHANGE THIS -->
+    <meta
+        property="og:url"
+        content="https://YOUR-USERNAME.github.io/speedmeter/"
+    >
+
+
+    <!-- Twitter -->
+
+    <meta
+        name="twitter:card"
+        content="summary"
+    >
+
+    <meta
+        name="twitter:title"
+        content="Internet Speed Test | SpeedMeter"
+    >
+
+    <meta
+        name="twitter:description"
+        content="Free internet speed test for download, upload and ping."
+    >
+
+
+    <!-- Favicon -->
+
+    <link
+        rel="icon"
+        type="image/svg+xml"
+        href="favicon.svg"
+    >
+
+
+    <!-- CSS -->
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
+
+    <!-- Structured Data -->
+
+    <script type="application/ld+json">
+
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+
+        "name": "SpeedMeter",
+
+        "description":
+        "Free internet speed test for download speed, upload speed, ping and internet connection monitoring.",
+
+        "applicationCategory":
+        "UtilitiesApplication",
+
+        "operatingSystem":
+        "Web Browser",
+
+        "isAccessibleForFree":
+        true,
+
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        }
+
+    }
+
+    </script>
+
+</head>
+
+
+<body>
+
+
+<!-- ==============================
+     NAVBAR
+============================== -->
+
+<header class="navbar">
+
+    <a
+        href="#"
+        class="brand"
+        aria-label="SpeedMeter home"
+    >
+
+        <div class="logo">
+
+            <div class="logo-bars">
+
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+
+            </div>
+
+        </div>
+
+
+        <div class="brand-text">
+
+            <strong>
+                SpeedMeter
+            </strong>
+
+            <small>
+                Internet Speed Test
+            </small>
+
+        </div>
+
+    </a>
+
+
+    <button
+        id="themeToggle"
+        class="theme-toggle"
+        aria-label="Toggle dark mode"
+    >
+
+        <span id="themeIcon">
+            ☾
+        </span>
+
+    </button>
+
+</header>
+
+
+
+<!-- ==============================
+     MAIN
+============================== -->
+
+<main>
+
+
+<!-- HERO -->
+
+<section class="hero">
+
+
+    <div
+        class="connection-badge"
+        id="connectionBadge"
+    >
+
+        <span class="live-dot"></span>
+
+        <span id="connectionText">
+            Checking connection
+        </span>
+
+    </div>
+
+
+    <h1>
+
+        Internet speed,
+        <span>made simple.</span>
+
+    </h1>
+
+
+    <p>
+
+        Check your download speed, upload speed and ping.
+        Monitor your connection whenever you need it.
+
+    </p>
+
+
+</section>
+
+
+
+<!-- SPEED CARD -->
+
+<section class="speed-card">
+
+
+    <div class="speed-card-top">
+
+
+        <div>
+
+            <p class="label">
+                DOWNLOAD SPEED
+            </p>
+
+
+            <div class="main-speed">
+
+                <span id="downloadSpeed">
+                    0.00
+                </span>
+
+                <small>
+                    Mbps
+                </small>
+
+            </div>
+
+        </div>
+
+
+        <div class="download-symbol">
+            ↓
+        </div>
+
+
+    </div>
+
+
+    <div class="progress">
+
+        <div
+            id="progressBar"
+            class="progress-fill"
+        ></div>
+
+    </div>
+
+
+    <div class="speed-footer">
+
+        <span id="testMessage">
+            Ready to test
+        </span>
+
+        <span id="testTime">
+            —
+        </span>
+
+    </div>
+
+
+</section>
+
+
+
+<!-- STAT CARDS -->
+
+<section class="stats">
+
+
+    <div class="stat-card">
+
+        <div class="stat-icon download">
+            ↓
+        </div>
+
+        <span>
+            DOWNLOAD
+        </span>
+
+        <strong>
+
+            <b id="downloadStat">
+                0.00
+            </b>
+
+            Mbps
+
+        </strong>
+
+    </div>
+
+
+    <div class="stat-card">
+
+        <div class="stat-icon upload">
+            ↑
+        </div>
+
+        <span>
+            UPLOAD
+        </span>
+
+        <strong>
+
+            <b id="uploadStat">
+                0.00
+            </b>
+
+            Mbps
+
+        </strong>
+
+    </div>
+
+
+    <div class="stat-card">
+
+        <div class="stat-icon ping">
+            ◉
+        </div>
+
+        <span>
+            PING
+        </span>
+
+        <strong>
+
+            <b id="pingStat">
+                —
+            </b>
+
+            ms
+
+        </strong>
+
+    </div>
+
+
+    <div class="stat-card">
+
+        <div class="stat-icon status">
+            ●
+        </div>
+
+        <span>
+            STATUS
+        </span>
+
+        <strong
+            id="statusStat"
+            class="online"
+        >
+            Online
+        </strong>
+
+    </div>
+
+
+</section>
+
+
+
+<!-- CONTROLS -->
+
+<section class="controls">
+
+
+    <button
+        id="testButton"
+        class="primary-button"
+    >
+
+        <span id="buttonIcon">
+            ▶
+        </span>
+
+        <span id="buttonText">
+            Start Speed Test
+        </span>
+
+    </button>
+
+
+    <button
+        id="monitorButton"
+        class="secondary-button"
+    >
+
+        ◉
+
+        <span>
+            Start Monitoring
+        </span>
+
+    </button>
+
+
+</section>
+
+
+
+<!-- CHART -->
+
+<section class="panel">
+
+
+    <div class="panel-header">
+
+
+        <div>
+
+            <h2>
+                Internet Performance
+            </h2>
+
+            <p>
+                Your recent speed history
+            </p>
+
+        </div>
+
+
+        <button
+            id="clearButton"
+            class="clear-button"
+        >
+            Clear
+        </button>
+
+
+    </div>
+
+
+    <div class="chart">
+
+        <canvas
+            id="speedChart"
+        ></canvas>
+
+
+        <div
+            id="chartEmpty"
+            class="chart-empty"
+        >
+
+            <div class="chart-symbol">
+                ∿
+            </div>
+
+            <span>
+                No tests yet
+            </span>
+
+            <small>
+                Run a speed test to see your history
+            </small>
+
+        </div>
+
+    </div>
+
+
+</section>
+
+
+
+<!-- CONNECTION DETAILS -->
+
+<section class="panel">
+
+
+    <div class="panel-header">
+
+        <div>
+
+            <h2>
+                Connection Details
+            </h2>
+
+            <p>
+                Information available from your browser
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div class="details">
+
+
+        <div>
+
+            <span>
+                Connection
+            </span>
+
+            <strong id="connectionType">
+                Detecting...
+            </strong>
+
+        </div>
+
+
+        <div>
+
+            <span>
+                Network Type
+            </span>
+
+            <strong id="effectiveType">
+                —
+            </strong>
+
+        </div>
+
+
+        <div>
+
+            <span>
+                Browser Downlink
+            </span>
+
+            <strong>
+
+                <b id="browserDownlink">
+                    —
+                </b>
+
+                Mbps
+
+            </strong>
+
+        </div>
+
+
+        <div>
+
+            <span>
+                Network Status
+            </span>
+
+            <strong id="networkStatus">
+                Online
+            </strong>
+
+        </div>
+
+
+    </div>
+
+</section>
+
+
+
+<!-- SEO CONTENT -->
+
+<section class="seo-content">
+
+
+    <h2>
+        Free Internet Speed Test
+    </h2>
+
+
+    <p>
+
+        SpeedMeter is a free internet speed test that lets you
+        check your connection's download speed, upload speed
+        and ping directly from your web browser.
+
+        No account is required and there is nothing to install.
+
+    </p>
+
+
+
+    <h2>
+        Check Your WiFi or Internet Speed
+    </h2>
+
+
+    <p>
+
+        Use SpeedMeter to check your WiFi, mobile data,
+        broadband or other internet connection. A speed test
+        can help you understand whether your current connection
+        is performing as expected.
+
+    </p>
+
+
+
+    <div class="seo-grid">
+
+
+        <article>
+
+            <h3>
+                Download Speed Test
+            </h3>
+
+            <p>
+
+                Find out how quickly data can be downloaded
+                to your device.
+
+            </p>
+
+        </article>
+
+
+        <article>
+
+            <h3>
+                Upload Speed Test
+            </h3>
+
+            <p>
+
+                Measure how quickly your connection can
+                send data to the internet.
+
+            </p>
+
+        </article>
+
+
+        <article>
+
+            <h3>
+                Ping Test
+            </h3>
+
+            <p>
+
+                Check the approximate response time between
+                your browser and the test service.
+
+            </p>
+
+        </article>
+
+
+        <article>
+
+            <h3>
+                Internet Monitoring
+            </h3>
+
+            <p>
+
+                Run repeated tests to observe changes in
+                your connection performance.
+
+            </p>
+
+        </article>
+
+
+    </div>
+
+
+
+    <h2>
+        What is a Good Internet Speed?
+    </h2>
+
+
+    <p>
+
+        The internet speed you need depends on what you do
+        online. Web browsing, video calls, streaming,
+        gaming and large downloads can all require different
+        levels of bandwidth.
+
+    </p>
+
+
+</section>
+
+
+</main>
+
+
+
+<!-- FOOTER -->
+
+<footer>
+
+
+    <div class="footer-logo">
+        SpeedMeter
+    </div>
+
+
+    <p>
+        Check your internet. Know your speed.
+    </p>
+
+
+    <div class="footer-line"></div>
+
+
+    <p class="copyright">
+        © 2026 SpeedMeter. Free internet speed test.
+    </p>
+
+
+</footer>
+
+
+
+<script src="script.js"></script>
+
+
+</body>
+
+  </html>
